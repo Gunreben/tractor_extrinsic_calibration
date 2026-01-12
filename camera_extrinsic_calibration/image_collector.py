@@ -85,6 +85,7 @@ class ImageCollectorNode(Node):
         
         # Calibration pairs from config
         self.calibration_pairs = self.cameras_config.get('calibration_pairs', [])
+        self.current_display_pair = 0  # Index of currently displayed pair
         
         # Set up QoS profile
         qos = QoSProfile(
@@ -113,7 +114,7 @@ class ImageCollectorNode(Node):
         cv2.namedWindow('Calibration View', cv2.WINDOW_NORMAL)
         
         self.get_logger().info(f"Image collector initialized. Output: {self.output_dir}")
-        self.get_logger().info("Press 'c' to capture, 'q' to quit, 's' to show stats")
+        self.get_logger().info("Controls: 'c'=capture, 'q'=quit, 's'=stats, 'n'=next pair, 'p'=prev pair, 1-9=select pair")
     
     def image_callback(self, msg: Image, camera_name: str):
         """Handle incoming image messages."""
@@ -132,13 +133,20 @@ class ImageCollectorNode(Node):
     def display_callback(self):
         """Periodic callback for display and capture logic."""
         with self.buffer_lock:
-            # Get images from first two cameras with overlapping FOV for display
+            # Get images from currently selected calibration pair
             display_images = []
             cam_names = []
+            pair_info = ""
             
-            # Show images from first calibration pair
+            # Show images from selected calibration pair
             if self.calibration_pairs:
-                pair = self.calibration_pairs[0]
+                # Ensure index is valid
+                if self.current_display_pair >= len(self.calibration_pairs):
+                    self.current_display_pair = 0
+                
+                pair = self.calibration_pairs[self.current_display_pair]
+                pair_info = f"Pair {self.current_display_pair + 1}/{len(self.calibration_pairs)}: {pair[0]} <-> {pair[1]}"
+                
                 for cam_name in pair:
                     if cam_name in self.buffers and self.buffers[cam_name].image is not None:
                         img = self.buffers[cam_name].image.copy()
@@ -168,6 +176,11 @@ class ImageCollectorNode(Node):
             else:
                 combined = resized[0]
             
+            # Add pair info at bottom
+            if pair_info:
+                cv2.putText(combined, pair_info, (10, combined.shape[0] - 10), 
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 0), 2)
+            
             cv2.imshow('Calibration View', combined)
         
         # Handle keyboard input
@@ -181,6 +194,25 @@ class ImageCollectorNode(Node):
             rclpy.shutdown()
         elif key == ord('s'):
             self.print_statistics()
+        elif key == ord('n'):
+            # Next pair
+            if self.calibration_pairs:
+                self.current_display_pair = (self.current_display_pair + 1) % len(self.calibration_pairs)
+                pair = self.calibration_pairs[self.current_display_pair]
+                self.get_logger().info(f"Showing pair {self.current_display_pair + 1}: {pair[0]} <-> {pair[1]}")
+        elif key == ord('p'):
+            # Previous pair
+            if self.calibration_pairs:
+                self.current_display_pair = (self.current_display_pair - 1) % len(self.calibration_pairs)
+                pair = self.calibration_pairs[self.current_display_pair]
+                self.get_logger().info(f"Showing pair {self.current_display_pair + 1}: {pair[0]} <-> {pair[1]}")
+        elif ord('1') <= key <= ord('9'):
+            # Direct selection by number (1-9)
+            pair_num = key - ord('1')  # 0-indexed
+            if self.calibration_pairs and pair_num < len(self.calibration_pairs):
+                self.current_display_pair = pair_num
+                pair = self.calibration_pairs[self.current_display_pair]
+                self.get_logger().info(f"Showing pair {self.current_display_pair + 1}: {pair[0]} <-> {pair[1]}")
         
         # Auto capture logic
         if self.auto_capture:
