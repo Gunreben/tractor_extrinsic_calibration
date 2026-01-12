@@ -57,31 +57,31 @@ def load_image_pairs(images_dir: str, cam1: str, cam2: str) -> List[Tuple[str, s
     # Find all image files
     all_files = sorted(os.listdir(pair_dir))
     
-    # Group by timestamp
-    pairs = []
-    timestamps = set()
+    # Group files by camera
+    cam1_files = {}
+    cam2_files = {}
     
     for f in all_files:
-        if f.endswith('.png') or f.endswith('.jpg'):
-            # Extract timestamp (format: YYYYMMDD_HHMMSS_camname.png)
-            parts = f.rsplit('_', 1)
-            if len(parts) == 2:
-                timestamp = parts[0]
-                timestamps.add(timestamp)
+        if not (f.endswith('.png') or f.endswith('.jpg')):
+            continue
+        
+        # Extract timestamp by removing camera name suffix
+        # Format: YYYYMMDD_HHMMSS_camname.png
+        basename = os.path.splitext(f)[0]  # Remove extension
+        
+        if basename.endswith(f"_{cam1}"):
+            timestamp = basename[:-len(f"_{cam1}")]
+            cam1_files[timestamp] = os.path.join(pair_dir, f)
+        elif basename.endswith(f"_{cam2}"):
+            timestamp = basename[:-len(f"_{cam2}")]
+            cam2_files[timestamp] = os.path.join(pair_dir, f)
     
-    for ts in sorted(timestamps):
-        img1_path = None
-        img2_path = None
-        
-        for f in all_files:
-            if f.startswith(ts):
-                if cam1 in f:
-                    img1_path = os.path.join(pair_dir, f)
-                elif cam2 in f:
-                    img2_path = os.path.join(pair_dir, f)
-        
-        if img1_path and img2_path:
-            pairs.append((img1_path, img2_path))
+    # Find matching pairs
+    pairs = []
+    common_timestamps = set(cam1_files.keys()) & set(cam2_files.keys())
+    
+    for ts in sorted(common_timestamps):
+        pairs.append((cam1_files[ts], cam2_files[ts]))
     
     return pairs
 
