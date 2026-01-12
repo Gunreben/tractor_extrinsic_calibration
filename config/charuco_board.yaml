@@ -2,10 +2,10 @@
 # =========================================================
 
 # Board dimensions
-squares_x: 10          # Number of chessboard squares in X direction
-squares_y: 14          # Number of chessboard squares in Y direction
-square_length: 0.050   # Square side length in meters (50mm)
-marker_length: 0.037   # ArUco marker side length in meters (37mm) - should be < square_length
+squares_x: 8          # Number of chessboard squares in X direction
+squares_y: 10          # Number of chessboard squares in Y direction
+square_length: 0.0692   # Square side length in meters (50mm)
+marker_length: 0.05   # ArUco marker side length in meters (37mm) - should be < square_length
 
 # ArUco dictionary - DICT_6X6_250 is good balance of capacity and detection robustness
 aruco_dictionary: "DICT_6X6_250"
@@ -13,6 +13,12 @@ aruco_dictionary: "DICT_6X6_250"
 # Board physical size (for reference - computed from above)
 # Total width:  10 * 50mm = 500mm
 # Total height: 14 * 50mm = 700mm
+#
+# NOTE: If you change squares_x or squares_y, you should also adjust min_corners_per_frame
+#       below. A smaller board will have fewer corners, so reduce the threshold accordingly.
+#       Rule of thumb: min_corners_per_frame should be ~30-50% of total corners on board.
+#       Total corners = (squares_x - 1) * (squares_y - 1)
+#       Example: 10x14 board has 9*13 = 117 corners, so min_corners_per_frame = 12 is ~10%
 
 # Detection parameters
 detection:
@@ -34,5 +40,10 @@ detection:
 # Calibration settings
 calibration:
   min_frames: 15              # Minimum number of frame pairs for calibration
-  min_corners_per_frame: 12   # Minimum detected corners per frame
+  min_corners_per_frame: 9   # Minimum detected corners per frame
+                              # IMPORTANT: Adjust this if you change squares_x/squares_y!
+                              # Should be ~30-50% of typical visible corners (usually 20-40% of total)
+                              # For 10x14 board (117 total corners): 12 is reasonable
+                              # For 8x10 board (63 total corners): 8-10 would be reasonable
+                              # For 6x8 board (35 total corners): 6-8 would be reasonable
   reprojection_threshold: 1.5 # Max reprojection error (pixels) to accept calibration

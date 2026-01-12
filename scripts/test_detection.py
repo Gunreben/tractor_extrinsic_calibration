@@ -13,6 +13,7 @@ import cv2
 import numpy as np
 import argparse
 import sys
+import os
 
 def test_opencv_aruco():
     """Test if OpenCV ArUco module is available."""
@@ -27,15 +28,57 @@ def test_opencv_aruco():
         print("  Install with: pip install opencv-contrib-python")
         return False
 
-def create_detector():
+def create_detector(config_path=None):
     """Create ChArUco detector matching our config."""
-    # Must match charuco_board.yaml!
-    squares_x = 10
-    squares_y = 14
-    square_length = 0.050  # 50mm
-    marker_length = 0.037  # 37mm
+    # Try to load from config file, fallback to defaults
+    if config_path is None:
+        # Try to find config file
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        config_path = os.path.join(script_dir, '..', 'config', 'charuco_board.yaml')
     
-    dictionary = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+    if os.path.exists(config_path):
+        try:
+            import yaml
+            with open(config_path, 'r') as f:
+                config = yaml.safe_load(f)
+            squares_x = config.get('squares_x', 10)
+            squares_y = config.get('squares_y', 14)
+            square_length = config.get('square_length', 0.050)
+            marker_length = config.get('marker_length', 0.037)
+            dict_name = config.get('aruco_dictionary', 'DICT_6X6_250')
+            print(f"  Loaded config: {squares_x}x{squares_y}, {square_length*1000:.0f}mm squares")
+        except Exception as e:
+            print(f"  Warning: Could not load config ({e}), using defaults")
+            squares_x, squares_y = 10, 14
+            square_length, marker_length = 0.050, 0.037
+            dict_name = 'DICT_6X6_250'
+    else:
+        # Defaults (must match charuco_board.yaml if config not found)
+        squares_x, squares_y = 10, 14
+        square_length, marker_length = 0.050, 0.037
+        dict_name = 'DICT_6X6_250'
+    
+    # Map dictionary name to OpenCV constant
+    ARUCO_DICT_MAP = {
+        "DICT_4X4_50": cv2.aruco.DICT_4X4_50,
+        "DICT_4X4_100": cv2.aruco.DICT_4X4_100,
+        "DICT_4X4_250": cv2.aruco.DICT_4X4_250,
+        "DICT_4X4_1000": cv2.aruco.DICT_4X4_1000,
+        "DICT_5X5_50": cv2.aruco.DICT_5X5_50,
+        "DICT_5X5_100": cv2.aruco.DICT_5X5_100,
+        "DICT_5X5_250": cv2.aruco.DICT_5X5_250,
+        "DICT_5X5_1000": cv2.aruco.DICT_5X5_1000,
+        "DICT_6X6_50": cv2.aruco.DICT_6X6_50,
+        "DICT_6X6_100": cv2.aruco.DICT_6X6_100,
+        "DICT_6X6_250": cv2.aruco.DICT_6X6_250,
+        "DICT_6X6_1000": cv2.aruco.DICT_6X6_1000,
+        "DICT_7X7_50": cv2.aruco.DICT_7X7_50,
+        "DICT_7X7_100": cv2.aruco.DICT_7X7_100,
+        "DICT_7X7_250": cv2.aruco.DICT_7X7_250,
+        "DICT_7X7_1000": cv2.aruco.DICT_7X7_1000,
+    }
+    dictionary = cv2.aruco.getPredefinedDictionary(ARUCO_DICT_MAP.get(dict_name, cv2.aruco.DICT_6X6_250))
+    
     board = cv2.aruco.CharucoBoard(
         (squares_x, squares_y),
         square_length,
@@ -208,7 +251,7 @@ def main():
         sys.exit(1)
     
     # Create detector
-    print("\nCreating detector (DICT_6X6_250, 10x14, 50mm squares)...")
+    print("\nCreating detector from config...")
     charuco_detector, dictionary = create_detector()
     print("  ✓ Detector created")
     
