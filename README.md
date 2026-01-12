@@ -1,6 +1,6 @@
 # Camera Extrinsic Calibration
 
-A ROS2 package for multi-camera extrinsic calibration using ChArUco boards. Designed for the tractor camera system with 7 cameras (5 surround fisheye cameras + ZED stereo pair).
+A ROS2 package for multi-camera extrinsic calibration using ChArUco boards. Designed for the tractor camera system with 7 cameras (5 surround fisheye cameras + ZED stereo pair) from Leipzig Universities Smart Farming Lab.
 
 ## Overview
 
@@ -44,11 +44,12 @@ rear_mid (BASE)
 - Python 3.8+
 - OpenCV with ArUco support (`opencv-contrib-python`)
 - NumPy, SciPy, PyYAML
+- ReportLab and Pillow (for PDF board generation)
 - cv_bridge, image_transport
 
 ```bash
 # Install Python dependencies
-pip install opencv-contrib-python numpy scipy pyyaml
+pip install opencv-contrib-python numpy scipy pyyaml reportlab pillow
 
 # ROS2 dependencies
 sudo apt install ros-$ROS_DISTRO-cv-bridge ros-$ROS_DISTRO-image-transport
@@ -73,27 +74,43 @@ source install/setup.bash
 
 ### Step 1: Generate ChArUco Board
 
-Generate a printable ChArUco board for A1 paper:
+Generate a printable ChArUco board. **PDF output is recommended** as it ensures correct physical dimensions:
 
 ```bash
-# Using default settings (A1, 10x14 squares, 55mm squares)
-ros2 run camera_extrinsic_calibration generate_charuco_board.py
-
-# Or with custom settings
+# Generate PDF for A1 paper (recommended, auto-detects paper size)
 ros2 run camera_extrinsic_calibration generate_charuco_board.py \
-    --squares-x 10 \
-    --squares-y 14 \
-    --square-length 55.0 \
-    --marker-length 42.0 \
-    --dpi 300 \
-    --output charuco_board_A1.png
+    --config $(ros2 pkg prefix camera_extrinsic_calibration)/share/camera_extrinsic_calibration/config/charuco_board.yaml \
+    --output charuco_board.pdf \
+    --paper-size A1
+
+# Or using config file (simpler)
+ros2 run camera_extrinsic_calibration generate_charuco_board.py \
+    --config $(ros2 pkg prefix camera_extrinsic_calibration)/share/camera_extrinsic_calibration/config/charuco_board.yaml \
+    --output charuco_board.pdf
+
+# Custom board parameters
+ros2 run camera_extrinsic_calibration generate_charuco_board.py \
+    --squares-x 8 \
+    --squares-y 10 \
+    --square-length 50.0 \
+    --marker-length 37.0 \
+    --paper-size A1 \
+    --output board.pdf
+
+# Generate PNG (less reliable for printing)
+ros2 run camera_extrinsic_calibration generate_charuco_board.py \
+    --output charuco_board.png \
+    --paper-size A1
 ```
 
+**Supported paper sizes:** A0, A1, A2, A3, A4, Letter, Legal, Tabloid
+
 **Important printing instructions:**
-1. Print at **100% scale** (no fit-to-page)
-2. Use **matte paper** to avoid reflections
-3. Mount on a **rigid, flat surface** (foam board recommended)
-4. **Verify** the square size with a ruler (should be exactly 55mm)
+1. **For PDF:** Print at **"Actual Size"** or **"100%"** scale (do NOT use "Fit to Page")
+2. **For PNG:** Print at **100% scale** (no fit-to-page)
+3. Use **matte paper** to avoid reflections
+4. Mount on a **rigid, flat surface** (foam board recommended)
+5. **Verify** the square size with a ruler (should match your config exactly)
 
 ### Step 2: Collect Calibration Images
 
@@ -106,6 +123,9 @@ ros2 launch camera_extrinsic_calibration collect_images.launch.py \
 
 **Controls:**
 - Press `c` to capture images from all camera pairs
+- Press `n` to show next camera pair in view
+- Press `p` to show previous camera pair in view
+- Press `1`-`9` to jump directly to pair 1-9
 - Press `s` to show capture statistics
 - Press `q` to quit
 
@@ -166,12 +186,18 @@ calibration_pairs:
 Defines the ChArUco board parameters:
 
 ```yaml
-squares_x: 10
-squares_y: 14
-square_length: 0.055  # meters
-marker_length: 0.042  # meters
+squares_x: 8          # Number of chessboard squares in X direction
+squares_y: 10         # Number of chessboard squares in Y direction
+square_length: 0.0692 # Square side length in meters (69.2mm)
+marker_length: 0.05   # ArUco marker side length in meters (50mm)
 aruco_dictionary: "DICT_6X6_250"
+
+calibration:
+  min_corners_per_frame: 9  # Adjust if you change grid size!
+                            # Should be ~30-50% of typical visible corners
 ```
+
+**Note:** If you change `squares_x` or `squares_y`, also adjust `min_corners_per_frame` proportionally. The total number of corners on the board is `(squares_x - 1) * (squares_y - 1)`.
 
 ## Output Format
 
@@ -191,8 +217,14 @@ rear_left:
 ### ChArUco board not detected
 - Ensure adequate lighting (avoid harsh shadows)
 - Check board is flat and not warped
-- Verify printed square size matches config
+- Verify printed square size matches config (use a ruler!)
 - Try adjusting detection parameters in `charuco_board.yaml`
+- Ensure board is large enough in the image (at least 20-30% of frame)
+
+### PDF generation fails
+- Install required packages: `pip install reportlab pillow`
+- Check that board dimensions fit on selected paper size
+- Script will warn if board is too large for the paper
 
 ### Poor calibration results
 - Collect more image pairs (20+ recommended)
