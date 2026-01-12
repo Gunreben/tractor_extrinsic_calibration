@@ -1,0 +1,71 @@
+# Camera Extrinsic Calibration Configuration
+# ===========================================
+# This file defines the camera setup and calibration chain.
+
+# Reference camera - all extrinsics will be computed relative to this camera
+reference_camera: "rear_mid"
+
+# Camera definitions
+cameras:
+  rear_mid:
+    image_topic: "/camera/rear_mid/image_raw"
+    camera_info_topic: "/camera/rear_mid/image_raw/camera_info"
+    intrinsics_file: "camera_rear_mid.intrinsics.yaml"
+    distortion_model: "fisheye"  # fisheye or pinhole
+    frame_id: "camera_rear_mid"
+    
+  rear_left:
+    image_topic: "/camera/rear_left/image_raw"
+    camera_info_topic: "/camera/rear_left/image_raw/camera_info"
+    intrinsics_file: "camera_rear_left.intrinsics.yaml"
+    distortion_model: "fisheye"
+    frame_id: "camera_rear_left"
+    
+  rear_right:
+    image_topic: "/camera/rear_right/image_raw"
+    camera_info_topic: "/camera/rear_right/image_raw/camera_info"
+    intrinsics_file: "camera_rear_right.intrinsics.yaml"
+    distortion_model: "fisheye"
+    frame_id: "camera_rear_right"
+    
+  side_left:
+    image_topic: "/camera/side_left/image_raw"
+    camera_info_topic: "/camera/side_left/image_raw/camera_info"
+    intrinsics_file: "camera_side_left.intrinsics.yaml"
+    distortion_model: "fisheye"
+    frame_id: "camera_side_left"
+    
+  side_right:
+    image_topic: "/camera/side_right/image_raw"
+    camera_info_topic: "/camera/side_right/image_raw/camera_info"
+    intrinsics_file: "camera_side_right.intrinsics.yaml"
+    distortion_model: "fisheye"
+    frame_id: "camera_side_right"
+    
+  zed_left:
+    image_topic: "/zed/zed_node/left_raw/image_raw_color"
+    camera_info_topic: "/zed/left/camera_info"
+    intrinsics_file: "zed_left_camera.intrinsics.yaml"
+    distortion_model: "pinhole"
+    frame_id: "zed_left_camera_optical_frame"
+    
+  zed_right:
+    image_topic: "/zed/zed_node/right_raw/image_raw_color"
+    camera_info_topic: "/zed/right/camera_info"
+    intrinsics_file: null  # Will use camera_info topic
+    distortion_model: "pinhole"
+    frame_id: "zed_right_camera_optical_frame"
+
+# Calibration chain - defines which camera pairs have overlapping FOV
+# Format: [source_camera, target_camera]
+# Calibration will propagate from reference through this chain
+calibration_pairs:
+  - ["rear_mid", "rear_left"]
+  - ["rear_mid", "rear_right"]
+  - ["rear_left", "side_left"]
+  - ["rear_right", "side_right"]
+  - ["side_right", "zed_left"]
+  - ["zed_left", "zed_right"]  # ZED stereo pair (known baseline, but can verify)
+
+# Alternative chain if side_left also sees ZED
+# - ["side_left", "zed_left"]

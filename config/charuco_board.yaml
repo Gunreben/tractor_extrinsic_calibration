@@ -1,0 +1,38 @@
+# ChArUco Board Configuration for A1 Paper (594mm x 841mm)
+# =========================================================
+
+# Board dimensions
+squares_x: 10          # Number of chessboard squares in X direction
+squares_y: 14          # Number of chessboard squares in Y direction
+square_length: 0.050   # Square side length in meters (50mm)
+marker_length: 0.037   # ArUco marker side length in meters (37mm) - should be < square_length
+
+# ArUco dictionary - DICT_6X6_250 is good balance of capacity and detection robustness
+aruco_dictionary: "DICT_6X6_250"
+
+# Board physical size (for reference - computed from above)
+# Total width:  10 * 50mm = 500mm
+# Total height: 14 * 50mm = 700mm
+
+# Detection parameters
+detection:
+  adaptive_thresh_win_size_min: 3
+  adaptive_thresh_win_size_max: 23
+  adaptive_thresh_win_size_step: 10
+  adaptive_thresh_constant: 7
+  min_marker_perimeter_rate: 0.03
+  max_marker_perimeter_rate: 4.0
+  polygonal_approx_accuracy_rate: 0.03
+  min_corner_distance_rate: 0.05
+  min_distance_to_border: 3
+  min_marker_distance_rate: 0.05
+  corner_refinement_method: "CORNER_REFINE_SUBPIX"
+  corner_refinement_win_size: 5
+  corner_refinement_max_iterations: 30
+  corner_refinement_min_accuracy: 0.1
+
+# Calibration settings
+calibration:
+  min_frames: 15              # Minimum number of frame pairs for calibration
+  min_corners_per_frame: 12   # Minimum detected corners per frame
+  reprojection_threshold: 1.5 # Max reprojection error (pixels) to accept calibration
