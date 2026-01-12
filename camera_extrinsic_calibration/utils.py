@@ -30,6 +30,7 @@ def load_intrinsics(intrinsics_path: str) -> Dict[str, Any]:
         - dist_coeffs: distortion coefficients
         - distortion_model: string
         - image_size: (width, height)
+        - is_fisheye: bool
     """
     with open(intrinsics_path, 'r') as f:
         content = f.read()
@@ -49,6 +50,17 @@ def load_intrinsics(intrinsics_path: str) -> Dict[str, Any]:
     # Get distortion model
     distortion_model = data.get('distortion_model', 'plumb_bob')
     
+    # Determine if fisheye based on distortion model name
+    # Common fisheye model names: equidistant, fisheye, kb4 (Kannala-Brandt)
+    fisheye_models = ['equidistant', 'fisheye', 'kb4', 'kannala_brandt']
+    is_fisheye = distortion_model.lower() in fisheye_models
+    
+    # OpenCV fisheye model requires exactly 4 distortion coefficients (k1, k2, k3, k4)
+    # If we have more, truncate to 4 for fisheye
+    if is_fisheye and len(dist_coeffs) > 4:
+        print(f"  Note: Truncating {len(dist_coeffs)} distortion coefficients to 4 for fisheye model")
+        dist_coeffs = dist_coeffs[:4]
+    
     # Get image size
     image_size = (data['image_width'], data['image_height'])
     
@@ -57,7 +69,8 @@ def load_intrinsics(intrinsics_path: str) -> Dict[str, Any]:
         'dist_coeffs': dist_coeffs,
         'distortion_model': distortion_model,
         'image_size': image_size,
-        'camera_name': data.get('camera_name', 'unknown')
+        'camera_name': data.get('camera_name', 'unknown'),
+        'is_fisheye': is_fisheye
     }
 
 

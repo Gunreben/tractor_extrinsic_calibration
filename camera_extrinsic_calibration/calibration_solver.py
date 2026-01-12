@@ -76,8 +76,9 @@ class ExtrinsicCalibrationSolver:
         intrinsics_path = os.path.join(self.intrinsics_dir, intrinsics_file)
         intrinsics = load_intrinsics(intrinsics_path)
         
-        # Add distortion model info from config
-        intrinsics['is_fisheye'] = cam_config.get('distortion_model', 'pinhole') == 'fisheye'
+        # Use fisheye flag from intrinsics file if available, otherwise from cameras.yaml
+        if 'is_fisheye' not in intrinsics or intrinsics['is_fisheye'] is None:
+            intrinsics['is_fisheye'] = cam_config.get('distortion_model', 'pinhole') == 'fisheye'
         
         self._intrinsics_cache[camera_name] = intrinsics
         return intrinsics
