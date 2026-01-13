@@ -103,6 +103,9 @@ def main():
                        help='Output file path for extrinsics (default: extrinsics_calibrated.yaml)')
     parser.add_argument('--output-urdf', type=str, default=None,
                        help='Output URDF file path (optional)')
+    parser.add_argument('--optical-frame', action='store_true',
+                       help='Output transforms in optical frame (OpenCV) convention. '
+                            'Default is camera link frame (ROS) convention.')
     parser.add_argument('--min-frames', type=int, default=10,
                        help='Minimum number of frame pairs per camera pair (default: 10)')
     parser.add_argument('--min-corners', type=int, default=8,
@@ -257,7 +260,8 @@ def main():
     save_extrinsics_yaml(extrinsics, args.output, reference)
     
     if args.output_urdf:
-        save_extrinsics_urdf(extrinsics, args.output_urdf, reference)
+        save_extrinsics_urdf(extrinsics, args.output_urdf, reference, 
+                            use_optical_frame=args.optical_frame)
     
     print("\n✓ Calibration complete!")
     print(f"  Extrinsics saved to: {args.output}")

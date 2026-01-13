@@ -206,6 +206,60 @@ def compose_transforms(T1: np.ndarray, T2: np.ndarray) -> np.ndarray:
     return T1 @ T2
 
 
+def get_optical_to_link_transform() -> np.ndarray:
+    """
+    Get the transformation matrix from camera optical frame to camera link frame.
+    
+    Camera optical frame (OpenCV convention):
+        - X: points right
+        - Y: points down
+        - Z: points forward (out of camera)
+    
+    Camera link frame (ROS convention):
+        - X: points forward
+        - Y: points left
+        - Z: points up
+    
+    Returns:
+        4x4 transformation matrix T_link_optical
+    """
+    # Rotation from optical frame to link frame
+    # X_link = Z_optical (forward)
+    # Y_link = -X_optical (left)
+    # Z_link = -Y_optical (up)
+    R_link_optical = np.array([
+        [0,  0,  1],  # X_link = Z_optical
+        [-1, 0,  0],  # Y_link = -X_optical
+        [0, -1,  0]   # Z_link = -Y_optical
+    ])
+    
+    T = np.eye(4)
+    T[:3, :3] = R_link_optical
+    return T
+
+
+def convert_optical_to_link_transform(T_cam2_optical_cam1_optical: np.ndarray) -> np.ndarray:
+    """
+    Convert a transform between camera optical frames to a transform between camera link frames.
+    
+    The calibration computes T_cam2_optical_cam1_optical (transform from cam1 optical frame
+    to cam2 optical frame). For URDF, we need T_cam2_link_cam1_link.
+    
+    Args:
+        T_cam2_optical_cam1_optical: 4x4 transform matrix in optical frame convention
+        
+    Returns:
+        4x4 transform matrix in camera link frame convention
+    """
+    T_link_optical = get_optical_to_link_transform()
+    T_optical_link = invert_transform(T_link_optical)
+    
+    # T_cam2_link_cam1_link = T_link_optical @ T_cam2_optical_cam1_optical @ T_optical_link
+    T_cam2_link_cam1_link = T_link_optical @ T_cam2_optical_cam1_optical @ T_optical_link
+    
+    return T_cam2_link_cam1_link
+
+
 def save_extrinsics_yaml(extrinsics: Dict[str, Dict], output_path: str, 
                          reference_frame: str = "rear_mid"):
     """
@@ -247,29 +301,51 @@ def save_extrinsics_yaml(extrinsics: Dict[str, Dict], output_path: str,
 
 
 def save_extrinsics_urdf(extrinsics: Dict[str, Dict], output_path: str,
-                         reference_frame: str = "rear_mid"):
+                         reference_frame: str = "rear_mid",
+                         use_optical_frame: bool = False):
     """
     Save computed extrinsics to URDF format for visualization.
     
+    By default, converts from camera optical frame (OpenCV) convention to 
+    camera link frame (ROS) convention. Set use_optical_frame=True to output
+    transforms in optical frame convention (for optical_frame links).
+    
     Args:
-        extrinsics: Dict mapping camera_name -> {translation, quaternion}
+        extrinsics: Dict mapping camera_name -> {translation, quaternion, transform_matrix}
         output_path: Path to save the URDF file
         reference_frame: Name of the reference frame
+        use_optical_frame: If True, output in optical frame convention (no conversion).
+                          If False (default), convert to camera link frame convention.
     """
     from scipy.spatial.transform import Rotation
     
     lines = [
         '<?xml version="1.0"?>',
         '<robot name="camera_extrinsics">',
+        '',
+        f'  <!-- Reference frame: {reference_frame} -->',
+        f'  <!-- Coordinate convention: {"optical frame (OpenCV)" if use_optical_frame else "camera link frame (ROS)"} -->',
+        '',
         f'  <link name="{reference_frame}"/>',
     ]
     
     for cam_name, data in extrinsics.items():
-        t = data['translation']
-        q = data['quaternion']  # [x, y, z, w]
+        # Get the transform matrix (if available) or reconstruct from translation/quaternion
+        if 'transform_matrix' in data:
+            T = data['transform_matrix']
+        else:
+            T = transform_to_matrix(data['translation'], data['quaternion'])
         
-        # Convert quaternion to RPY for URDF
-        r = Rotation.from_quat(q)  # scipy uses [x, y, z, w]
+        # Convert from optical frame to link frame if needed
+        if not use_optical_frame:
+            T = convert_optical_to_link_transform(T)
+        
+        # Extract translation and rotation from the (possibly converted) transform
+        t = T[:3, 3]
+        R = T[:3, :3]
+        
+        # Convert rotation matrix to RPY for URDF
+        r = Rotation.from_matrix(R)
         rpy = r.as_euler('xyz')
         
         parent = data.get('parent', reference_frame)
@@ -289,3 +365,5 @@ def save_extrinsics_urdf(extrinsics: Dict[str, Dict], output_path: str,
         f.write('\n'.join(lines))
     
     print(f"Saved URDF to {output_path}")
+    if not use_optical_frame:
+        print(f"  (Converted from optical frame to camera link frame convention)")
